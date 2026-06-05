@@ -34,7 +34,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;o
 .view{display:none;} .view.on{display:block;}
 
 /* HERO */
-.hero{padding:52px 24px 36px;text-align:center;position:relative;overflow:hidden;}
+.hero{padding:32px 24px 24px;text-align:center;position:relative;overflow:hidden;}
 .vinyl{position:absolute;right:-80px;top:-40px;width:340px;height:340px;border-radius:50%;background:repeating-conic-gradient(#141414 0deg 2deg,#0c0c0c 2deg 4deg);opacity:.12;animation:vspin 25s linear infinite;}
 @keyframes vspin{to{transform:rotate(360deg);}}
 .vinyl::after{content:'';position:absolute;inset:42%;background:#080808;border-radius:50%;}
@@ -251,20 +251,15 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;o
   .ctrl-grid,.ctrl-grid-3{grid-template-columns:1fr;}
   .qa{padding:0 7px;}
 }
-.spotdl-cmd{font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;letter-spacing:.5px;margin-top:6px;cursor:pointer;padding:4px 10px;background:var(--surface3);border-radius:4px;border:1px solid var(--border2);display:inline-flex;align-items:center;gap:6px;transition:all .2s;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.spotdl-cmd:hover{border-color:var(--amber);color:var(--amber);}
 </style>
 </head>
 <body>
 
 <nav class="nav">
-  <div class="logo">SABER<em>.me</em></div>
-  <div class="nav-right">
-    <div class="nav-live"><span class="pulse"></span>LIVE</div>
-    <div class="tab-row">
-      <button class="tab on" onclick="swView('fan',this)">REQUEST</button>
-      <button class="tab" onclick="swView('queue',this)">QUEUE</button>
-    </div>
+  <div class="nav-live"><span class="pulse"></span>LIVE</div>
+  <div class="tab-row">
+    <button class="tab on" onclick="swView('fan',this)">REQUEST</button>
+    <button class="tab" onclick="swView('queue',this)">QUEUE</button>
   </div>
 </nav>
 
@@ -280,7 +275,6 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;o
   <div id="req-form">
     <div class="hero">
       <div class="vinyl"></div>
-      <div class="hero-tag">IYKYK</div>
       <h1 class="hero-h1">YOU KNOW WHAT<br><span>YOU WANT.</span></h1>
       <p class="hero-sub">REQUEST YOUR TRACK &middot; FOLLOW TO UNLOCK</p>
     </div>
@@ -470,6 +464,7 @@ var DJ_PIN = '2606';
 var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 var selectedSong  = null;
+var ytResults     = [];
 var source        = 'yt';
 var searchTimer   = null;
 var realtimeSub   = null;
@@ -478,7 +473,8 @@ var djPanelOpen   = false;
 var eventSettings = { event_name:'LIVE', venue_name:'', event_date:'', is_accepting:true, avg_song_minutes:3 };
 
 // ─── INIT ──────────────────────────────
-loadEventSettings(); // connect will be triggered on first user interaction
+loadEventSettings();
+subscribeQueue();
 
 // ─── VIEW SWITCH ───────────────────────
 function swView(id, btn) {
@@ -487,7 +483,9 @@ function swView(id, btn) {
   document.getElementById(id + '-view').classList.add('on');
   btn.classList.add('on');
   if (id === 'queue') {
+    document.getElementById('conn-bar').className = 'conn-bar loading';
     document.getElementById('conn-bar').style.display = 'flex';
+    document.getElementById('conn-text').textContent = 'Connecting...';
     if (isDJ) restoreDjMode();
     loadQueue();
     subscribeQueue();
@@ -613,10 +611,8 @@ function onIgType() {
   var v = document.getElementById('ig-in').value.trim();
   document.getElementById('follow-btn').disabled = v.length < 2;
   document.getElementById('unlock-btn').style.display = v.length >= 2 ? 'block' : 'none';
-  if (v.length === 1) ensureConnected(); // trigger on first keystroke
 }
 function doFollow() {
-  ensureConnected();
   window.open('https://www.instagram.com/banghersounds?igsh=MWhhNWQzcjhmOXlubg==', '_blank');
   var fb = document.getElementById('follow-btn');
   fb.textContent = 'OPENED'; fb.style.background = 'var(--surface3)'; fb.style.color = 'var(--muted2)';
@@ -673,12 +669,14 @@ function fetchYouTube(q) {
     .catch(function(){ drop.innerHTML = '<div class="loading">Search failed. Try again.</div>'; });
 }
 
-function selectYt(videoId, title, channel, thumb) {
-  selectedSong = { videoId: videoId, title: title, channel: channel, thumb: thumb, source: 'yt' };
+function selectYtIdx(idx) {
+  var it = ytResults[idx];
+  if (!it) return;
+  selectedSong = { videoId: it.videoId, title: it.title, channel: it.channel, thumb: it.thumb, source: 'yt' };
   document.getElementById('yt-results').classList.remove('show');
   document.getElementById('yt-search').value = '';
-  var th = thumb ? '<img src="' + thumb + '" alt="">' : '&#9654;';
-  showSel(th, title, channel);
+  var th = it.thumb ? '<img src="' + it.thumb + '" alt="">' : '&#9654;';
+  showSel(th, it.title, it.channel);
   advanceTo3();
 }
 
@@ -737,7 +735,6 @@ async function doSubmit() {
     return;
   }
   var avgMin = eventSettings.avg_song_minutes || 3;
-  // Count active pending songs for the live queue position shown to fan
   var countResult = await sb.from('requests').select('id', { count: 'exact' }).eq('status', 'pending');
   var livePos = countResult.count || 1;
   document.getElementById('q-num').textContent = livePos;
@@ -826,6 +823,7 @@ function renderQueue(rows) {
       + '<div class="q-img">' + thumb + '</div>'
       + '<div class="q-inf"><div class="q-song">' + row.song_title + '</div>'
       + '<div class="q-meta">' + (row.song_channel ? '<span>' + row.song_channel + '</span>' : '') + ig + etaStr + '</div>'
+    + (row.message ? '<div style="font-size:10px;color:var(--muted2);margin-top:4px;font-style:italic;">&#128172; ' + row.message + '</div>' : '')
     + (isDJ && row.video_id ? '<div class="spotdl-cmd" onclick="copySpotdl(\'' + row.video_id + '\', this)">&#128229; spotdl download &quot;https://www.youtube.com/watch?v=' + row.video_id + '&quot;</div>' : '')
     + '</div>'
       + chip
@@ -925,13 +923,6 @@ function showToast(msg, isErr) {
   t.className = 'toast show' + (isErr ? '' : ' ok-toast');
   clearTimeout(t._timer);
   t._timer = setTimeout(function(){ t.classList.remove('show'); }, 2800);
-}
-
-
-// Ensure Supabase connection is active -- called on first user interaction
-function ensureConnected() {
-  loadEventSettings();
-  subscribeQueue();
 }
 
 function copySpotdl(vid, el) {
