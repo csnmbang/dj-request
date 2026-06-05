@@ -666,7 +666,7 @@ function fetchYouTube(q) {
         };
       });
       drop.innerHTML = ytResults.map(function(it, idx){
-        var th = it.thumb ? '<img src="' + it.thumb + '" alt="" onerror="this.parentElement.innerHTML='&#9654;'">' : '&#9654;';
+        var th = it.thumb ? '<img src="' + it.thumb + '" alt="" onerror="this.parentElement.innerHTML=\'&#9654;\'">' : '&#9654;';
         return '<div class="r-item" onclick="selectYtIdx(' + idx + ')">'
           + '<div class="r-thumb">' + th + '</div>'
           + '<div class="r-info"><div class="r-title">' + it.title + '</div><div class="r-ch">' + it.channel + '</div></div>'
