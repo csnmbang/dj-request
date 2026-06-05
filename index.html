@@ -609,7 +609,13 @@ function djLogout() {
 
 // ─── IG FLOW ───────────────────────────
 function onIgType() {
-  document.getElementById('follow-btn').disabled = document.getElementById('ig-in').value.trim().length < 2;
+  var v = document.getElementById('ig-in').value.trim();
+  document.getElementById('follow-btn').disabled = v.length < 2;
+  if (v.length >= 2) {
+    document.getElementById('unlock-btn').style.display = 'block';
+  } else {
+    document.getElementById('unlock-btn').style.display = 'none';
+  }
 }
 function doFollow() {
   window.open('https://www.instagram.com/banghersounds?igsh=MWhhNWQzcjhmOXlubg==', '_blank');
