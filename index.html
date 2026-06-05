@@ -483,9 +483,7 @@ function swView(id, btn) {
   document.getElementById(id + '-view').classList.add('on');
   btn.classList.add('on');
   if (id === 'queue') {
-    document.getElementById('conn-bar').className = 'conn-bar loading';
     document.getElementById('conn-bar').style.display = 'flex';
-    document.getElementById('conn-text').textContent = 'Connecting...';
     if (isDJ) restoreDjMode();
     loadQueue();
     subscribeQueue();
@@ -612,7 +610,13 @@ function onIgType() {
   document.getElementById('follow-btn').disabled = v.length < 2;
   document.getElementById('unlock-btn').style.display = v.length >= 2 ? 'block' : 'none';
 }
+function ensureConnected() {
+  loadEventSettings();
+  subscribeQueue();
+}
+
 function doFollow() {
+  ensureConnected();
   window.open('https://www.instagram.com/banghersounds?igsh=MWhhNWQzcjhmOXlubg==', '_blank');
   var fb = document.getElementById('follow-btn');
   fb.textContent = 'OPENED'; fb.style.background = 'var(--surface3)'; fb.style.color = 'var(--muted2)';
