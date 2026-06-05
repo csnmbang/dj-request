@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BANGHER REQUEST</title>
+<title>IYKYK · BANGHER</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,700;0,900;1,900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -280,9 +280,9 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;o
   <div id="req-form">
     <div class="hero">
       <div class="vinyl"></div>
-      <div class="hero-tag">Live Request Platform</div>
-      <h1 class="hero-h1">REQUEST<br><span>YOUR TRACK.</span></h1>
-      <p class="hero-sub">FOLLOW TO UNLOCK &middot; YOUR SONG GETS PLAYED</p>
+      <div class="hero-tag">SABER.ME</div>
+      <h1 class="hero-h1">YOU KNOW WHAT<br><span>YOU WANT.</span></h1>
+      <p class="hero-sub">REQUEST YOUR TRACK &middot; FOLLOW TO UNLOCK</p>
     </div>
     <div class="form-wrap">
       <div class="card active" id="c1">
@@ -478,8 +478,7 @@ var djPanelOpen   = false;
 var eventSettings = { event_name:'LIVE', venue_name:'', event_date:'', is_accepting:true, avg_song_minutes:3 };
 
 // ─── INIT ──────────────────────────────
-loadEventSettings();
-subscribeQueue();
+loadEventSettings(); // connect will be triggered on first user interaction
 
 // ─── VIEW SWITCH ───────────────────────
 function swView(id, btn) {
@@ -616,8 +615,10 @@ function onIgType() {
   var v = document.getElementById('ig-in').value.trim();
   document.getElementById('follow-btn').disabled = v.length < 2;
   document.getElementById('unlock-btn').style.display = v.length >= 2 ? 'block' : 'none';
+  if (v.length === 1) ensureConnected(); // trigger on first keystroke
 }
 function doFollow() {
+  ensureConnected();
   window.open('https://www.instagram.com/banghersounds?igsh=MWhhNWQzcjhmOXlubg==', '_blank');
   var fb = document.getElementById('follow-btn');
   fb.textContent = 'OPENED'; fb.style.background = 'var(--surface3)'; fb.style.color = 'var(--muted2)';
@@ -924,6 +925,13 @@ function showToast(msg, isErr) {
   t.className = 'toast show' + (isErr ? '' : ' ok-toast');
   clearTimeout(t._timer);
   t._timer = setTimeout(function(){ t.classList.remove('show'); }, 2800);
+}
+
+
+// Ensure Supabase connection is active -- called on first user interaction
+function ensureConnected() {
+  loadEventSettings();
+  subscribeQueue();
 }
 
 function copySpotdl(vid, el) {
