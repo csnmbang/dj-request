@@ -270,9 +270,9 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;o
 
 <div id="paused-banner" class="paused-banner">Requests are currently paused</div>
 
-<div id="conn-bar" class="conn-bar loading">
+<div id="conn-bar" class="conn-bar" style="display:none;">
   <span class="conn-dot"></span>
-  <span id="conn-text">Connecting...</span>
+  <span id="conn-text">Connected. Queue updates live.</span>
 </div>
 
 <!-- FAN VIEW -->
@@ -487,9 +487,7 @@ function swView(id, btn) {
   document.getElementById(id + '-view').classList.add('on');
   btn.classList.add('on');
   if (id === 'queue') {
-    document.getElementById('conn-bar').className = 'conn-bar loading';
     document.getElementById('conn-bar').style.display = 'flex';
-    document.getElementById('conn-text').textContent = 'Connecting...';
     if (isDJ) restoreDjMode();
     loadQueue();
     subscribeQueue();
@@ -826,7 +824,7 @@ function renderQueue(rows) {
       + '<div class="q-img">' + thumb + '</div>'
       + '<div class="q-inf"><div class="q-song">' + row.song_title + '</div>'
       + '<div class="q-meta">' + (row.song_channel ? '<span>' + row.song_channel + '</span>' : '') + ig + etaStr + '</div>'
-    + (row.video_id ? '<div class="spotdl-cmd" onclick="copySpotdl(\'' + row.video_id + '\', this)">&#128229; spotdl download &quot;https://www.youtube.com/watch?v=' + row.video_id + '&quot;</div>' : '')
+    + (isDJ && row.video_id ? '<div class="spotdl-cmd" onclick="copySpotdl(\'' + row.video_id + '\', this)">&#128229; spotdl download &quot;https://www.youtube.com/watch?v=' + row.video_id + '&quot;</div>' : '')
     + '</div>'
       + chip
       + '<div class="q-acts">' + actions + '</div>'
