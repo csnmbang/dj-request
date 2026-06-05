@@ -6,24 +6,7 @@
 <title>BANGHER REQUEST</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,700;0,900;1,900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
-function copySpotdl(vid, el) {
-  var cmd = 'spotdl download "https://www.youtube.com/watch?v=' + vid + '"';
-  var orig = el.innerHTML;
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(cmd).then(function(){
-      el.innerHTML = '&#10003; Copied!'; el.style.color = 'var(--green)';
-      setTimeout(function(){ el.innerHTML = orig; el.style.color = ''; }, 2000);
-    });
-  } else {
-    var ta = document.createElement('textarea');
-    ta.value = cmd; ta.style.position = 'fixed'; ta.style.opacity = '0';
-    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
-    el.innerHTML = '&#10003; Copied!'; el.style.color = 'var(--green)';
-    setTimeout(function(){ el.innerHTML = orig; el.style.color = ''; }, 2000);
-  }
-}
-</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root {
   --bg:#080808; --surface:#101010; --surface2:#181818; --surface3:#222;
@@ -479,7 +462,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;o
 <script>
 var SUPABASE_URL  = 'https://myylxqjqijereffxzmst.supabase.co';
 var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15eWx4cWpxaWplcmVmZnh6bXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2MTU4NTIsImV4cCI6MjA5NjE5MTg1Mn0.vWv13nNJ90kTn9MggY_CuoJByG4SSw7saCsJLtUo4-c';
-var YT_API_KEY = localStorage.getItem('yt_api_key') || '';
+var YT_API_KEY = localStorage.getItem('yt_api_key') || 'AIzaSyBke2t7VEgs_CxnETVVEw6jhm01c900hnY';
 
 // Change this to your own PIN
 var DJ_PIN = '2606';
@@ -842,7 +825,6 @@ function renderQueue(rows) {
       + '<div class="q-img">' + thumb + '</div>'
       + '<div class="q-inf"><div class="q-song">' + row.song_title + '</div>'
       + '<div class="q-meta">' + (row.song_channel ? '<span>' + row.song_channel + '</span>' : '') + ig + etaStr + '</div>'
-      + (row.message ? '<div style="font-size:10px;color:var(--muted2);margin-top:4px;font-style:italic;">&#128172; ' + row.message + '</div>' : '')
     + (row.video_id ? '<div class="spotdl-cmd" onclick="copySpotdl(\'' + row.video_id + '\', this)">&#128229; spotdl download &quot;https://www.youtube.com/watch?v=' + row.video_id + '&quot;</div>' : '')
     + '</div>'
       + chip
@@ -942,6 +924,23 @@ function showToast(msg, isErr) {
   t.className = 'toast show' + (isErr ? '' : ' ok-toast');
   clearTimeout(t._timer);
   t._timer = setTimeout(function(){ t.classList.remove('show'); }, 2800);
+}
+
+function copySpotdl(vid, el) {
+  var cmd = 'spotdl download "https://www.youtube.com/watch?v=' + vid + '"';
+  var orig = el.innerHTML;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(cmd).then(function(){
+      el.innerHTML = '&#10003; Copied!'; el.style.color = 'var(--green)';
+      setTimeout(function(){ el.innerHTML = orig; el.style.color = ''; }, 2000);
+    });
+  } else {
+    var ta = document.createElement('textarea');
+    ta.value = cmd; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    el.innerHTML = '&#10003; Copied!'; el.style.color = 'var(--green)';
+    setTimeout(function(){ el.innerHTML = orig; el.style.color = ''; }, 2000);
+  }
 }
 </script>
 </body>
