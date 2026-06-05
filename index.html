@@ -653,15 +653,19 @@ function fetchYouTube(q) {
     .then(function(d){
       if (d.error) { drop.innerHTML = '<div class="loading">Error: ' + d.error.message + '</div>'; return; }
       if (!d.items || !d.items.length) { drop.innerHTML = '<div class="loading">No results found</div>'; return; }
-      drop.innerHTML = d.items.map(function(i){
-        var vid   = i.id.videoId;
-        var title = i.snippet.title;
-        var ch    = i.snippet.channelTitle;
-        var thumb = (i.snippet.thumbnails && i.snippet.thumbnails.default) ? i.snippet.thumbnails.default.url : '';
-        var th    = thumb ? '<img src="' + thumb + '" alt="" onerror="this.parentElement.innerHTML=\'&#9654;\'">' : '&#9654;';
-        return '<div class="r-item" onclick="selectYt(\'' + vid + '\',\'' + esc(title) + '\',\'' + esc(ch) + '\',\'' + thumb + '\')">'
+      ytResults = d.items.map(function(i){
+        return {
+          videoId: i.id.videoId,
+          title:   i.snippet.title,
+          channel: i.snippet.channelTitle,
+          thumb:   (i.snippet.thumbnails && i.snippet.thumbnails.default) ? i.snippet.thumbnails.default.url : ''
+        };
+      });
+      drop.innerHTML = ytResults.map(function(it, idx){
+        var th = it.thumb ? '<img src="' + it.thumb + '" alt="" onerror="this.parentElement.innerHTML='&#9654;'">' : '&#9654;';
+        return '<div class="r-item" onclick="selectYtIdx(' + idx + ')">'
           + '<div class="r-thumb">' + th + '</div>'
-          + '<div class="r-info"><div class="r-title">' + title + '</div><div class="r-ch">' + ch + '</div></div>'
+          + '<div class="r-info"><div class="r-title">' + it.title + '</div><div class="r-ch">' + it.channel + '</div></div>'
           + '<span class="r-badge">YT</span></div>';
       }).join('');
       drop.classList.add('show');
