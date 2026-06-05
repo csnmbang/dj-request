@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BANGHER REQUEST</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Supabase JS -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg:#080808; --surface:#101010; --surface2:#181818; --surface3:#222;
+  --accent:#ff3000; --accent-glow:rgba(255,48,0,.18);
+  --amber:#ffaa00; --green:#00e87a;
+  --text:#f2ede4; --muted:#555; --muted2:#888;
+  --border:#242424; --border2:#2e2e2e; --radius:10px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;overflow-x:hidden;}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;opacity:.025;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");}
+
+/* NAV */
+.nav{position:sticky;top:0;z-index:200;display:flex;justify-content:space-between;align-items:center;padding:16px 28px;background:rgba(8,8,8,.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-style:italic;font-size:26px;letter-spacing:3px;}
+.logo em{color:var(--accent);font-style:inherit;}
+.nav-right{display:flex;gap:16px;align-items:center;}
+.nav-live{display:flex;align-items:center;gap:8px;font-size:10px;letter-spacing:2px;color:var(--muted2);text-transform:uppercase;}
+.pulse{width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block;animation:pulse 1.8s ease-in-out infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,48,0,.6);}50%{box-shadow:0 0 0 6px rgba(255,48,0,0);}}
+.tab-row{display:flex;gap:3px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:3px;}
+.tab{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;border:none;background:transparent;color:var(--muted2);padding:7px 18px;border-radius:6px;cursor:pointer;transition:all .2s;}
+.tab.on{background:var(--accent);color:#fff;}
+.view{display:none;} .view.on{display:block;}
+
+/* HERO */
+.hero{padding:52px 24px 36px;text-align:center;position:relative;overflow:hidden;}
+.vinyl{position:absolute;right:-80px;top:-40px;width:340px;height:340px;border-radius:50%;background:repeating-conic-gradient(#141414 0deg 2deg,#0c0c0c 2deg 4deg);opacity:.12;animation:vspin 25s linear infinite;}
+@keyframes vspin{to{transform:rotate(360deg);}}
+.vinyl::after{content:'';position:absolute;inset:42%;background:#080808;border-radius:50%;}
+.hero-tag{display:inline-block;border:1px solid var(--accent);color:var(--accent);font-size:9px;letter-spacing:4px;text-transform:uppercase;padding:4px 14px;border-radius:2px;margin-bottom:18px;}
+.hero-h1{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-style:italic;font-size:clamp(54px,11vw,104px);line-height:.88;letter-spacing:-1px;margin-bottom:14px;}
+.hero-h1 span{color:var(--accent);}
+.hero-sub{font-size:10px;letter-spacing:3px;color:var(--muted);}
+
+/* STEPPER */
+.stepper{max-width:580px;margin:0 auto;padding:0 20px 40px;}
+.step{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;margin-bottom:10px;transition:border-color .3s,box-shadow .3s;}
+.step.locked{opacity:.35;pointer-events:none;}
+.step.done{border-color:rgba(0,232,122,.3);opacity:.65;}
+.step.active{border-color:var(--accent);box-shadow:0 0 28px var(--accent-glow);}
+.step-hd{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+.step-num{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;background:var(--surface3);border:1px solid var(--border2);transition:all .3s;}
+.step.active .step-num{background:var(--accent);border-color:var(--accent);color:#fff;}
+.step.done .step-num{background:var(--green);border-color:var(--green);color:#000;}
+.step-title{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-style:italic;font-size:19px;letter-spacing:1px;text-transform:uppercase;}
+
+/* FIELDS */
+.field-row{display:flex;gap:8px;}
+.field{flex:1;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:12px 14px;border-radius:var(--radius);font-family:'DM Mono',monospace;font-size:12px;outline:none;transition:border-color .2s;}
+.field:focus{border-color:var(--accent);} .field::placeholder{color:var(--muted);}
+.btn{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-style:italic;font-size:15px;letter-spacing:1px;text-transform:uppercase;border:none;border-radius:var(--radius);padding:12px 20px;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.btn-red{background:var(--accent);color:#fff;}
+.btn-red:hover{background:#ff4d1a;transform:translateY(-1px);}
+.btn-red:disabled{background:var(--surface3);color:var(--muted);transform:none;cursor:not-allowed;}
+.btn-ghost{width:100%;margin-top:8px;background:transparent;color:var(--muted2);border:1px solid var(--border2);}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent);}
+.hint{font-size:10px;color:var(--muted);letter-spacing:.5px;line-height:1.7;margin-top:10px;}
+.hint strong{color:var(--muted2);}
+
+/* SOURCE PILLS */
+.source-pills{display:flex;gap:6px;margin-bottom:12px;}
+.pill{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;padding:5px 12px;border-radius:20px;cursor:pointer;border:1px solid var(--border2);background:transparent;color:var(--muted2);transition:all .2s;}
+.pill.on{background:var(--amber);color:#000;border-color:var(--amber);}
+.pill:hover:not(.on){border-color:var(--amber);color:var(--amber);}
+
+/* SEARCH */
+.search-wrap{position:relative;}
+.search-ico{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:15px;pointer-events:none;}
+.search-field{width:100%;padding:13px 14px 13px 42px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius);font-family:'DM Mono',monospace;font-size:12px;outline:none;transition:border-color .2s;}
+.search-field:focus{border-color:var(--amber);} .search-field::placeholder{color:var(--muted);}
+
+/* RESULTS */
+.results-drop{margin-top:6px;border:1px solid var(--border2);border-radius:var(--radius);overflow:hidden;display:none;background:var(--surface2);max-height:320px;overflow-y:auto;}
+.results-drop.show{display:block;}
+.results-drop::-webkit-scrollbar{width:4px;} .results-drop::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+.r-item{display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .15s;}
+.r-item:last-child{border-bottom:none;} .r-item:hover{background:var(--surface3);}
+.r-thumb{width:52px;height:38px;border-radius:5px;flex-shrink:0;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:18px;overflow:hidden;}
+.r-thumb img{width:100%;height:100%;object-fit:cover;}
+.r-info{flex:1;min-width:0;}
+.r-title{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;}
+.r-ch{font-size:10px;color:var(--muted2);}
+.r-badge{font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:4px;flex-shrink:0;}
+.r-badge.yt{background:rgba(255,0,0,.15);color:#ff4444;}
+.r-badge.bp{background:rgba(255,170,0,.15);color:var(--amber);}
+.loading{padding:18px;text-align:center;font-size:10px;letter-spacing:2px;color:var(--muted);}
+.spin{display:inline-block;animation:rot .8s linear infinite;margin-right:6px;}
+@keyframes rot{to{transform:rotate(360deg);}}
+
+/* SELECTED CARD */
+.sel-card{display:none;background:rgba(255,170,0,.06);border:1px solid rgba(255,170,0,.25);border-radius:var(--radius);padding:14px;margin-bottom:12px;}
+.sel-card.show{display:flex;align-items:center;gap:14px;}
+.sel-thumb{width:56px;height:40px;border-radius:6px;overflow:hidden;background:var(--surface3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;}
+.sel-thumb img{width:100%;height:100%;object-fit:cover;}
+.sel-info{flex:1;min-width:0;}
+.sel-title{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sel-sub{font-size:10px;color:var(--muted2);margin-top:3px;}
+.sel-src{font-size:9px;letter-spacing:1px;padding:2px 8px;border-radius:3px;margin-top:4px;display:inline-block;}
+.sel-src.yt{background:rgba(255,0,0,.15);color:#ff5555;}
+.sel-src.bp{background:rgba(255,170,0,.12);color:var(--amber);}
+.sel-src.txt{background:rgba(255,255,255,.05);color:var(--muted2);}
+.clr-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:17px;padding:4px;flex-shrink:0;}
+
+/* PREVIEW */
+.preview-wrap{display:none;margin-top:12px;border-radius:8px;overflow:hidden;border:1px solid var(--border);background:var(--surface3);}
+.preview-wrap.show{display:block;}
+.preview-wrap iframe{width:100%;height:170px;border:none;display:block;}
+.preview-label{padding:8px 12px;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;display:flex;align-items:center;gap:6px;border-top:1px solid var(--border);}
+
+/* TEXT AREAS */
+.txt-area{width:100%;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:12px 14px;border-radius:var(--radius);font-family:'DM Mono',monospace;font-size:12px;outline:none;resize:none;height:76px;line-height:1.6;transition:border-color .2s;}
+.txt-area:focus{border-color:var(--amber);} .txt-area::placeholder{color:var(--muted);}
+.msg-area{width:100%;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:12px 14px;border-radius:var(--radius);font-family:'DM Mono',monospace;font-size:12px;outline:none;resize:none;height:68px;line-height:1.6;transition:border-color .2s;}
+.msg-area:focus{border-color:var(--accent);} .msg-area::placeholder{color:var(--muted);}
+
+/* SUBMIT */
+.submit-btn{width:100%;margin-top:10px;background:linear-gradient(130deg,var(--accent) 0%,#ff6600 100%);color:#fff;border:none;padding:18px;border-radius:12px;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-style:italic;font-size:24px;letter-spacing:3px;text-transform:uppercase;cursor:pointer;transition:all .2s;position:relative;}
+.submit-btn:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(255,48,0,.28);}
+.submit-btn:disabled{opacity:.5;transform:none;cursor:not-allowed;}
+
+/* SUCCESS */
+.success{display:none;text-align:center;padding:60px 24px;}
+.success.show{display:block;}
+.success-ico{font-size:64px;animation:popIn .5s cubic-bezier(.34,1.56,.64,1);}
+@keyframes popIn{0%{transform:scale(0);}100%{transform:scale(1);}}
+.success-h{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-style:italic;font-size:52px;color:var(--green);margin:16px 0 6px;}
+.success-sub{font-size:10px;letter-spacing:3px;color:var(--muted);}
+.q-badge{display:inline-block;background:var(--surface);border:1px solid rgba(255,170,0,.35);border-radius:14px;padding:20px 36px;margin:24px 0 16px;}
+.q-num{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:80px;line-height:1;color:var(--amber);}
+.q-lbl{font-size:9px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-top:4px;}
+.eta{font-size:12px;color:var(--muted2);margin-bottom:20px;}
+.eta strong{color:var(--text);}
+.dm-pill{display:inline-flex;align-items:center;gap:10px;background:rgba(0,232,122,.07);border:1px solid rgba(0,232,122,.25);border-radius:10px;padding:14px 20px;font-size:11px;color:var(--green);letter-spacing:.5px;max-width:420px;margin:0 auto;line-height:1.6;}
+
+/* ERROR TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a0a0a;border:1px solid var(--accent);color:var(--text);padding:12px 24px;border-radius:8px;font-size:12px;z-index:9998;display:none;letter-spacing:.5px;}
+.toast.show{display:block;animation:fadeUp .3s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateX(-50%) translateY(10px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
+
+/* ── DJ DASHBOARD ── */
+.dj-wrap{padding:28px 28px 40px;}
+.dj-hd{margin-bottom:20px;}
+.dj-hd h2{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-style:italic;font-size:32px;letter-spacing:1px;}
+.dj-hd p{font-size:10px;letter-spacing:2px;color:var(--muted);margin-top:4px;}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px;}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center;}
+.stat-v{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:38px;line-height:1;}
+.stat-v.r{color:var(--accent);} .stat-v.g{color:var(--green);} .stat-v.a{color:var(--amber);}
+.stat-l{font-size:9px;letter-spacing:2px;color:var(--muted);margin-top:4px;text-transform:uppercase;}
+.sec-title{font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+.q-list{display:flex;flex-direction:column;gap:8px;}
+
+/* queue rows */
+.q-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);display:flex;align-items:center;gap:12px;padding:12px 16px;transition:border-color .2s;}
+.q-row:hover{border-color:var(--accent);}
+.q-row.playing{border-color:rgba(0,232,122,.4);background:rgba(0,232,122,.04);}
+.q-n{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:26px;color:var(--muted);width:32px;text-align:center;flex-shrink:0;}
+.q-row.playing .q-n{color:var(--green);}
+.q-img{width:48px;height:34px;border-radius:5px;overflow:hidden;background:var(--surface3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;}
+.q-img img{width:100%;height:100%;object-fit:cover;}
+.q-inf{flex:1;min-width:0;}
+.q-song{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.q-meta{font-size:10px;color:var(--muted2);margin-top:3px;display:flex;gap:10px;flex-wrap:wrap;}
+.q-ig-lbl{color:var(--amber);}
+.now-chip{background:var(--green);color:#000;font-size:8px;font-weight:700;letter-spacing:1.5px;padding:3px 8px;border-radius:4px;text-transform:uppercase;flex-shrink:0;}
+.q-acts{display:flex;gap:6px;flex-shrink:0;}
+.qa{width:30px;height:30px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.qa.play:hover{border-color:var(--green);color:var(--green);}
+.qa.skip:hover{border-color:#ff4466;color:#ff4466;}
+.qa.prv:hover{border-color:var(--amber);color:var(--amber);}
+
+/* empty state */
+.empty-state{text-align:center;padding:48px 24px;color:var(--muted);font-size:12px;letter-spacing:1px;border:1px dashed var(--border2);border-radius:var(--radius);}
+.empty-state div{font-size:36px;margin-bottom:12px;}
+
+/* dj preview */
+.dj-preview{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-top:12px;display:none;}
+.dj-preview.show{display:block;}
+.dj-preview iframe{width:100%;height:200px;border:none;border-radius:6px;}
+.dj-preview-close{background:none;border:none;color:var(--muted2);font-size:11px;letter-spacing:1px;cursor:pointer;margin-bottom:8px;display:block;}
+
+/* connection status */
+.conn-bar{padding:8px 28px;font-size:10px;letter-spacing:1.5px;display:flex;align-items:center;gap:8px;}
+.conn-bar.ok{background:rgba(0,232,122,.05);color:var(--green);}
+.conn-bar.err{background:rgba(255,48,0,.05);color:var(--accent);}
+.conn-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;}
+
+@media(max-width:600px){
+  .stats{grid-template-columns:repeat(2,1fr);}
+  .dj-wrap,.nav{padding-left:16px;padding-right:16px;}
+  .hero-h1{font-size:52px;}
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="logo">BANG<em>HER</em></div>
+  <div class="nav-right">
+    <div class="nav-live"><span class="pulse"></span>LIVE</div>
+    <div class="tab-row">
+      <button class="tab on" onclick="swView('fan',this)">REQUEST</button>
+      <button class="tab" onclick="swView('dj',this)">DJ BOOTH</button>
+    </div>
+  </div>
+</nav>
+
+<!-- CONNECTION STATUS BAR (DJ only) -->
+<div id="conn-bar" class="conn-bar" style="display:none;">
+  <span class="conn-dot"></span>
+  <span id="conn-text">Connecting to database...</span>
+</div>
+
+<!-- FAN VIEW -->
+<div id="fan-view" class="view on">
+  <div id="req-form">
+    <div class="hero">
+      <div class="vinyl"></div>
+      <div class="hero-tag">Live Request Platform</div>
+      <h1 class="hero-h1">REQUEST<br><span>YOUR TRACK.</span></h1>
+      <p class="hero-sub">FOLLOW TO UNLOCK &middot; YOUR SONG GETS PLAYED</p>
+    </div>
+
+    <div class="stepper">
+      <!-- S1 -->
+      <div class="step active" id="s1">
+        <div class="step-hd">
+          <div class="step-num" id="s1-num">1</div>
+          <div class="step-title">Follow @djbangher</div>
+        </div>
+        <div class="field-row">
+          <input class="field" id="ig-in" type="text" placeholder="your_instagram_handle" oninput="onIgType()">
+          <button class="btn btn-red" id="follow-btn" disabled onclick="doFollow()">FOLLOW &rarr;</button>
+        </div>
+        <button class="btn btn-ghost" id="verify-btn" style="display:none;" onclick="doVerify()">
+          &#10003; I&apos;m following &mdash; unlock my request
+        </button>
+        <p class="hint">After following, DM <strong>@djbangher</strong> the word <strong>REQUEST</strong> to get verified instantly.</p>
+      </div>
+
+      <!-- S2 -->
+      <div class="step locked" id="s2">
+        <div class="step-hd">
+          <div class="step-num" id="s2-num">2</div>
+          <div class="step-title">Find your song</div>
+        </div>
+        <div class="source-pills">
+          <button class="pill on" id="pill-yt" onclick="setSource('yt')">&#9658; YouTube</button>
+          <button class="pill" id="pill-bp" onclick="setSource('bp')">&#9835; Beatport</button>
+          <button class="pill" id="pill-txt" onclick="setSource('txt')">&#9998; Type it</button>
+        </div>
+        <div class="sel-card" id="sel-card">
+          <div class="sel-thumb" id="sel-thumb"></div>
+          <div class="sel-info">
+            <div class="sel-title" id="sel-title"></div>
+            <div class="sel-sub" id="sel-sub"></div>
+            <span class="sel-src" id="sel-src-badge"></span>
+          </div>
+          <button class="clr-btn" onclick="clearSel()">&times;</button>
+        </div>
+        <!-- YT panel -->
+        <div id="yt-panel">
+          <div class="search-wrap">
+            <span class="search-ico">&#128269;</span>
+            <input class="search-field" id="yt-search" placeholder="Search YouTube &mdash; artist, song, mix" oninput="onYtSearch(this.value)" autocomplete="off">
+          </div>
+          <div class="results-drop" id="yt-results"></div>
+          <div class="preview-wrap" id="yt-preview">
+            <iframe id="yt-iframe" allow="autoplay" allowfullscreen></iframe>
+            <div class="preview-label"><span>&#9654;</span> PREVIEW</div>
+          </div>
+        </div>
+        <!-- BP panel -->
+        <div id="bp-panel" style="display:none;">
+          <div class="search-wrap">
+            <span class="search-ico">&#128269;</span>
+            <input class="search-field" id="bp-search" placeholder="Search Beatport &mdash; title, artist, label" oninput="onBpSearch(this.value)" style="border-color:rgba(255,170,0,.3);" autocomplete="off">
+          </div>
+          <div class="results-drop" id="bp-results"></div>
+          <p class="hint" style="margin-top:8px;">Shows BPM + key. <strong>Connect Beatport API in settings to go live.</strong></p>
+        </div>
+        <!-- TXT panel -->
+        <div id="txt-panel" style="display:none;">
+          <textarea class="txt-area" id="txt-song" placeholder="e.g. Fisher - Losing It (Extended Mix)&#10;or just describe it: that hard techno banger" oninput="onTxtInput()"></textarea>
+        </div>
+      </div>
+
+      <!-- S3 -->
+      <div class="step locked" id="s3">
+        <div class="step-hd">
+          <div class="step-num" id="s3-num">3</div>
+          <div class="step-title">Drop it &#128293;</div>
+        </div>
+        <textarea class="msg-area" id="msg-in" placeholder="Optional message to the DJ... (keep it hype)"></textarea>
+        <button class="submit-btn" id="submit-btn" onclick="doSubmit()">SEND REQUEST</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUCCESS -->
+  <div class="success" id="success">
+    <div class="success-ico">&#127911;</div>
+    <div class="success-h">YOU&apos;RE IN.</div>
+    <div class="success-sub">REQUEST RECEIVED &mdash; GET READY</div>
+    <div class="q-badge">
+      <div class="q-num" id="q-num">&mdash;</div>
+      <div class="q-lbl">In Queue</div>
+    </div>
+    <div class="eta">Estimated time &#9201; <strong id="eta">&mdash;</strong></div>
+    <div class="dm-pill">
+      &#128242; Check your Instagram DMs &mdash; BANGHER just sent your queue spot + live queue link!
+    </div>
+  </div>
+</div><!-- /fan-view -->
+
+<!-- DJ DASHBOARD -->
+<div id="dj-view" class="view">
+  <div class="dj-wrap">
+    <div class="dj-hd">
+      <h2>DJ BOOTH &#9889;</h2>
+      <p><span class="pulse"></span>&nbsp; LIVE QUEUE &middot; WORLD CUP PARTY &middot; 305 SPORTS BAR &middot; JUN 19</p>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="stat-v r" id="stat-pending">0</div><div class="stat-l">In Queue</div></div>
+      <div class="stat"><div class="stat-v g" id="stat-played">0</div><div class="stat-l">Played</div></div>
+      <div class="stat"><div class="stat-v a" id="stat-total">0</div><div class="stat-l">Total Requests</div></div>
+      <div class="stat"><div class="stat-v" id="stat-eta">0 min</div><div class="stat-l">Queue Time</div></div>
+    </div>
+
+    <div class="sec-title">Live Queue</div>
+    <div class="q-list" id="dj-queue">
+      <div class="empty-state"><div>&#127911;</div>No requests yet &mdash; share your request link!</div>
+    </div>
+
+    <div class="dj-preview" id="dj-preview">
+      <button class="dj-preview-close" onclick="closeDjPreview()">&#10005; CLOSE PREVIEW</button>
+      <iframe id="dj-iframe" allow="autoplay" allowfullscreen></iframe>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────
+// CONFIG — swap in your own keys if forking
+// ─────────────────────────────────────────
+var SUPABASE_URL  = 'https://myylxqjqijereffxzmst.supabase.co';
+var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15eWx4cWpxaWplcmVmZnh6bXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2MTU4NTIsImV4cCI6MjA5NjE5MTg1Mn0.vWv13nNJ90kTn9MggY_CuoJByG4SSw7saCsJLtUo4-c';
+var YT_API_KEY    = localStorage.getItem('yt_api_key') || '';
+
+// ─────────────────────────────────────────
+// INIT SUPABASE
+// ─────────────────────────────────────────
+var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ─────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────
+var igVerified = false;
+var selectedSong = null;
+var source = 'yt';
+var searchTimer = null;
+
+var BP_DEMO = [
+  {id:'bp1',title:'Losing It (Extended Mix)',channel:'Fisher / Skint',bpm:'128',key:'Am',thumb:'&#9889;'},
+  {id:'bp2',title:'Exceed (Original Mix)',channel:'Charlotte de Witte / KNTXT',bpm:'142',key:'Bm',thumb:'&#128266;'},
+  {id:'bp3',title:'Insomnia (Club Mix)',channel:'Faithless / Cheeky',bpm:'136',key:'Cm',thumb:'&#127769;'},
+  {id:'bp4',title:'Turn Off the Lights',channel:'Fisher / Skint',bpm:'130',key:'Fm',thumb:'&#128161;'},
+];
+
+// ─────────────────────────────────────────
+// VIEW SWITCH
+// ─────────────────────────────────────────
+function swView(id, btn) {
+  document.querySelectorAll('.view').forEach(function(v){v.classList.remove('on');});
+  document.querySelectorAll('.tab').forEach(function(b){b.classList.remove('on');});
+  document.getElementById(id+'-view').classList.add('on');
+  btn.classList.add('on');
+  if (id === 'dj') {
+    document.getElementById('conn-bar').style.display = 'flex';
+    loadDjQueue();
+    subscribeQueue();
+  } else {
+    document.getElementById('conn-bar').style.display = 'none';
+  }
+}
+
+// ─────────────────────────────────────────
+// IG FLOW
+// ─────────────────────────────────────────
+function onIgType() {
+  var v = document.getElementById('ig-in').value.trim();
+  document.getElementById('follow-btn').disabled = v.length < 2;
+}
+function doFollow() {
+  window.open('https://www.instagram.com/djbangher/', '_blank');
+  var fb = document.getElementById('follow-btn');
+  fb.textContent = 'OPENED'; fb.style.background='var(--surface3)'; fb.style.color='var(--muted2)';
+  document.getElementById('verify-btn').style.display = 'block';
+}
+function doVerify() {
+  igVerified = true;
+  setDone('s1'); unlock('s2'); setActive('s2');
+  document.getElementById('yt-search').focus();
+}
+
+// ─────────────────────────────────────────
+// SOURCE
+// ─────────────────────────────────────────
+function setSource(s) {
+  source = s;
+  ['yt','bp','txt'].forEach(function(x){
+    document.getElementById('pill-'+x).classList.toggle('on', x===s);
+    document.getElementById(x+'-panel').style.display = x===s ? 'block' : 'none';
+  });
+  clearSel();
+}
+
+// ─────────────────────────────────────────
+// YOUTUBE SEARCH
+// ─────────────────────────────────────────
+function onYtSearch(val) {
+  clearTimeout(searchTimer);
+  var drop = document.getElementById('yt-results');
+  if (val.length < 3) { drop.classList.remove('show'); return; }
+  drop.innerHTML = '<div class="loading"><span class="spin">&#9675;</span> searching youtube...</div>';
+  drop.classList.add('show');
+  searchTimer = setTimeout(function(){
+    if (YT_API_KEY) { fetchYouTube(val); }
+    else { showToast('Add YouTube API key in DJ Booth settings'); drop.classList.remove('show'); }
+  }, 400);
+}
+
+function fetchYouTube(q) {
+  var drop = document.getElementById('yt-results');
+  var url = 'https://www.googleapis.com/youtube/v3/search?part=snippet&q='
+    + encodeURIComponent(q) + '&type=video&maxResults=8&key=' + YT_API_KEY;
+  fetch(url).then(function(r){return r.json();}).then(function(d){
+    if (d.error) { drop.innerHTML='<div class="loading">&#9888; '+d.error.message+'</div>'; return; }
+    renderYtResults(d.items.map(function(i){
+      return {
+        videoId: i.id.videoId,
+        title: i.snippet.title,
+        channel: i.snippet.channelTitle,
+        thumb: (i.snippet.thumbnails && i.snippet.thumbnails.default) ? i.snippet.thumbnails.default.url : ''
+      };
+    }));
+  }).catch(function(){ drop.innerHTML='<div class="loading">&#9888; Search failed</div>'; });
+}
+
+function renderYtResults(items) {
+  var drop = document.getElementById('yt-results');
+  if (!items.length) { drop.innerHTML='<div class="loading">No results</div>'; return; }
+  drop.innerHTML = items.map(function(it){
+    var th = it.thumb ? '<img src="'+it.thumb+'" alt="" onerror="this.parentElement.innerHTML=\'&#9654;\'">' : '&#9654;';
+    return '<div class="r-item" onclick="selectYt(\''+it.videoId+'\',\''+esc(it.title)+'\',\''+esc(it.channel)+'\',\''+it.thumb+'\')"><div class="r-thumb">'+th+'</div><div class="r-info"><div class="r-title">'+it.title+'</div><div class="r-ch">'+it.channel+'</div></div><span class="r-badge yt">YT</span></div>';
+  }).join('');
+  drop.classList.add('show');
+}
+
+function selectYt(videoId, title, channel, thumb) {
+  selectedSong = {videoId:videoId, title:title, channel:channel, thumb:thumb, source:'yt'};
+  document.getElementById('yt-results').classList.remove('show');
+  document.getElementById('yt-search').value = '';
+  var th = thumb ? '<img src="'+thumb+'" alt="">' : '&#9654;';
+  showSelCard(th, title, channel, 'YouTube', 'yt');
+  document.getElementById('yt-iframe').src = 'https://www.youtube.com/embed/'+videoId+'?autoplay=0&modestbranding=1';
+  document.getElementById('yt-preview').classList.add('show');
+  advanceToStep3();
+}
+
+// ─────────────────────────────────────────
+// BEATPORT (demo)
+// ─────────────────────────────────────────
+function onBpSearch(val) {
+  clearTimeout(searchTimer);
+  var drop = document.getElementById('bp-results');
+  if (val.length < 2) { drop.classList.remove('show'); return; }
+  searchTimer = setTimeout(function(){
+    var q = val.toLowerCase();
+    var m = BP_DEMO.filter(function(s){ return s.title.toLowerCase().indexOf(q)>-1 || s.channel.toLowerCase().indexOf(q)>-1; });
+    var items = m.length ? m : BP_DEMO;
+    drop.innerHTML = items.map(function(it){
+      return '<div class="r-item" onclick="selectBp(\''+it.id+'\',\''+esc(it.title)+'\',\''+esc(it.channel)+'\',\''+it.bpm+'\',\''+it.key+'\',\''+it.thumb+'\')">'
+        +'<div class="r-thumb">'+it.thumb+'</div><div class="r-info"><div class="r-title">'+it.title+'</div>'
+        +'<div class="r-ch">'+it.channel+' &middot; <span style="color:var(--amber)">'+it.bpm+' BPM &middot; '+it.key+'</span></div></div>'
+        +'<span class="r-badge bp">BP</span></div>';
+    }).join('') + '<div class="loading" style="border-top:1px solid var(--border)">&#9888; Demo &mdash; connect Beatport API for live</div>';
+    drop.classList.add('show');
+  }, 300);
+}
+
+function selectBp(id, title, channel, bpm, key, thumb) {
+  selectedSong = {videoId:null, title:title, channel:channel+' / '+bpm+' BPM / '+key, source:'bp'};
+  document.getElementById('bp-results').classList.remove('show');
+  showSelCard(thumb, title, channel+' / '+bpm+' BPM / '+key, 'Beatport', 'bp');
+  advanceToStep3();
+}
+
+// ─────────────────────────────────────────
+// FREE TEXT
+// ─────────────────────────────────────────
+function onTxtInput() {
+  var val = document.getElementById('txt-song').value.trim();
+  if (val.length > 3) {
+    selectedSong = {videoId:null, title:val, channel:'Manual entry', source:'txt'};
+    showSelCard('&#9998;', val, 'Manual entry', 'Free text', 'txt');
+    advanceToStep3();
+  }
+}
+
+// ─────────────────────────────────────────
+// SELECTION HELPERS
+// ─────────────────────────────────────────
+function showSelCard(thumbHtml, title, sub, srcLabel, srcClass) {
+  document.getElementById('sel-thumb').innerHTML = thumbHtml;
+  document.getElementById('sel-title').textContent = title;
+  document.getElementById('sel-sub').textContent = sub;
+  var badge = document.getElementById('sel-src-badge');
+  badge.textContent = srcLabel; badge.className = 'sel-src '+srcClass;
+  document.getElementById('sel-card').classList.add('show');
+}
+
+function clearSel() {
+  selectedSong = null;
+  document.getElementById('sel-card').classList.remove('show');
+  document.getElementById('yt-preview').classList.remove('show');
+  document.getElementById('yt-iframe').src = '';
+  var s2 = document.getElementById('s2'); s2.classList.remove('done'); s2.classList.add('active');
+  var s3 = document.getElementById('s3'); s3.classList.remove('active'); s3.classList.add('locked');
+}
+
+function advanceToStep3() {
+  setDone('s2'); unlock('s3'); setActive('s3');
+  document.getElementById('s3').scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+// ─────────────────────────────────────────
+// SUBMIT → SUPABASE
+// ─────────────────────────────────────────
+async function doSubmit() {
+  if (!selectedSong) return;
+  var btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'SENDING...';
+
+  var igHandle = document.getElementById('ig-in').value.trim();
+  var message  = document.getElementById('msg-in').value.trim();
+
+  var payload = {
+    ig_handle:    igHandle || 'anonymous',
+    song_title:   selectedSong.title,
+    song_channel: selectedSong.channel || null,
+    song_source:  selectedSong.source,
+    video_id:     selectedSong.videoId || null,
+    thumb_url:    selectedSong.thumb   || null,
+    message:      message || null,
+    status:       'pending'
+  };
+
+  var result = await sb.from('requests').insert([payload]).select().single();
+
+  if (result.error) {
+    showToast('Error: ' + result.error.message);
+    btn.disabled = false; btn.textContent = 'SEND REQUEST';
+    return;
+  }
+
+  var pos = result.data.queue_position || 1;
+  document.getElementById('q-num').textContent  = pos;
+  document.getElementById('eta').textContent    = '~' + (pos * 3) + ' min';
+  document.getElementById('req-form').style.display = 'none';
+  document.getElementById('success').classList.add('show');
+}
+
+// ─────────────────────────────────────────
+// DJ QUEUE — load from Supabase
+// ─────────────────────────────────────────
+async function loadDjQueue() {
+  setConnBar('loading');
+  var result = await sb.from('requests')
+    .select('*')
+    .in('status', ['pending','playing'])
+    .order('queue_position', {ascending:true});
+
+  if (result.error) {
+    setConnBar('error', result.error.message);
+    return;
+  }
+
+  setConnBar('ok');
+  renderDjQueue(result.data);
+  updateStats(result.data);
+}
+
+function renderDjQueue(rows) {
+  var list = document.getElementById('dj-queue');
+  if (!rows || !rows.length) {
+    list.innerHTML = '<div class="empty-state"><div>&#127911;</div>No requests yet &mdash; share your link!</div>';
+    return;
+  }
+
+  list.innerHTML = rows.map(function(row, i){
+    var isPlaying = row.status === 'playing';
+    var thumb = row.video_id
+      ? '<img src="https://img.youtube.com/vi/'+row.video_id+'/default.jpg" alt="" onerror="this.parentElement.innerHTML=\'&#9654;\'">'
+      : '&#9835;';
+    var timeAgo = getTimeAgo(row.created_at);
+    return '<div class="q-row'+(isPlaying?' playing':'')+'" data-id="'+row.id+'">'
+      + '<div class="q-n">'+(isPlaying?'&#9654;':row.queue_position)+'</div>'
+      + '<div class="q-img">'+thumb+'</div>'
+      + '<div class="q-inf">'
+        + '<div class="q-song">'+row.song_title+'</div>'
+        + '<div class="q-meta">'
+          + '<span>'+(row.song_channel||'')+'</span>'
+          + '<span class="q-ig-lbl">@'+row.ig_handle+'</span>'
+          + '<span>'+row.song_source.toUpperCase()+'</span>'
+          + '<span>'+timeAgo+'</span>'
+        + '</div>'
+      + '</div>'
+      + (isPlaying ? '<span class="now-chip">NOW</span>' : '')
+      + '<div class="q-acts">'
+        + (row.video_id ? '<button class="qa prv" title="Preview" onclick="djPreview(\''+row.video_id+'\')">&#9654;</button>' : '')
+        + (!isPlaying ? '<button class="qa play" title="Mark playing" onclick="markPlaying(\''+row.id+'\')">&#9654;</button>' : '')
+        + '<button class="qa skip" title="Mark played" onclick="markPlayed(\''+row.id+'\')">&#10005;</button>'
+      + '</div>'
+    + '</div>';
+  }).join('');
+}
+
+async function updateStats(pendingRows) {
+  document.getElementById('stat-pending').textContent = pendingRows ? pendingRows.length : 0;
+  document.getElementById('stat-eta').textContent = (pendingRows ? pendingRows.length * 3 : 0) + ' min';
+
+  var played = await sb.from('requests').select('id', {count:'exact'}).eq('status','played');
+  document.getElementById('stat-played').textContent = played.count || 0;
+
+  var total = await sb.from('requests').select('id', {count:'exact'});
+  document.getElementById('stat-total').textContent = total.count || 0;
+}
+
+// ─────────────────────────────────────────
+// DJ ACTIONS
+// ─────────────────────────────────────────
+async function markPlaying(id) {
+  // Set previous playing back to pending first
+  await sb.from('requests').update({status:'pending'}).eq('status','playing');
+  await sb.from('requests').update({status:'playing'}).eq('id', id);
+  loadDjQueue();
+}
+
+async function markPlayed(id) {
+  await sb.from('requests').update({status:'played'}).eq('id', id);
+  loadDjQueue();
+}
+
+function djPreview(vid) {
+  document.getElementById('dj-iframe').src = 'https://www.youtube.com/embed/'+vid+'?autoplay=1&modestbranding=1';
+  var p = document.getElementById('dj-preview'); p.classList.add('show');
+  p.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+function closeDjPreview() {
+  document.getElementById('dj-iframe').src = '';
+  document.getElementById('dj-preview').classList.remove('show');
+}
+
+// ─────────────────────────────────────────
+// REALTIME SUBSCRIPTION
+// ─────────────────────────────────────────
+var realtimeSub = null;
+function subscribeQueue() {
+  if (realtimeSub) return; // already subscribed
+  realtimeSub = sb.channel('requests-changes')
+    .on('postgres_changes', {event:'*', schema:'public', table:'requests'}, function(){
+      loadDjQueue();
+    })
+    .subscribe();
+}
+
+// ─────────────────────────────────────────
+// CONNECTION BAR
+// ─────────────────────────────────────────
+function setConnBar(state, msg) {
+  var bar = document.getElementById('conn-bar');
+  var txt = document.getElementById('conn-text');
+  bar.className = 'conn-bar';
+  if (state === 'ok') {
+    bar.classList.add('ok'); txt.textContent = 'Connected to database — queue updates live';
+  } else if (state === 'error') {
+    bar.classList.add('err'); txt.textContent = 'DB error: ' + (msg || 'check console');
+  } else {
+    txt.textContent = 'Connecting...';
+  }
+}
+
+// ─────────────────────────────────────────
+// STEP HELPERS
+// ─────────────────────────────────────────
+function setDone(id){var el=document.getElementById(id);el.classList.remove('active','locked');el.classList.add('done');document.getElementById(id+'-num').textContent='✓';}
+function setActive(id){var el=document.getElementById(id);el.classList.remove('locked','done');el.classList.add('active');}
+function unlock(id){document.getElementById(id).classList.remove('locked');}
+
+// ─────────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────────
+function esc(s){ return String(s).replace(/'/g,"&#39;").replace(/"/g,'&quot;'); }
+
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 3500);
+}
+
+function getTimeAgo(ts) {
+  var diff = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
+  if (diff < 60) return diff + 's ago';
+  if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+  return Math.floor(diff/3600) + 'h ago';
+}
+</script>
+</body>
+</html>
