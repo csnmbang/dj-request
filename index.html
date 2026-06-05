@@ -736,10 +736,12 @@ async function doSubmit() {
     btn.disabled = false; btn.textContent = 'SEND REQUEST';
     return;
   }
-  var pos = result.data.queue_position || 1;
   var avgMin = eventSettings.avg_song_minutes || 3;
-  document.getElementById('q-num').textContent = pos;
-  document.getElementById('eta').textContent   = '~' + (pos * avgMin) + ' min';
+  // Count active pending songs for the live queue position shown to fan
+  var countResult = await sb.from('requests').select('id', { count: 'exact' }).eq('status', 'pending');
+  var livePos = countResult.count || 1;
+  document.getElementById('q-num').textContent = livePos;
+  document.getElementById('eta').textContent   = '~' + (livePos * avgMin) + ' min';
   var scThumb = document.getElementById('sc-thumb');
   scThumb.innerHTML = selectedSong.thumb
     ? '<img src="' + selectedSong.thumb + '" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML=\'&#9835;\'">'
