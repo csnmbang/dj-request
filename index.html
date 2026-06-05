@@ -759,6 +759,18 @@ async function doSubmit() {
   document.getElementById('sc-ch').textContent    = selectedSong.channel || '';
   document.getElementById('req-form').style.display = 'none';
   document.getElementById('success').classList.add('show');
+
+  // Notify DJ via ntfy.sh -- fires even when phone is locked
+  var igHandle = document.getElementById('ig-in').value.trim() || 'anonymous';
+  fetch('https://ntfy.sh/bangher-queue-2606', {
+    method: 'POST',
+    body: (selectedSong ? selectedSong.title : 'Unknown') + ' from @' + igHandle,
+    headers: {
+      'Title': 'New Request',
+      'Priority': 'high',
+      'Tags': 'musical_note'
+    }
+  }).catch(function(){});
 }
 
 function resetForm() {
