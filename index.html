@@ -842,6 +842,7 @@ function renderQueue(rows) {
       + '<div class="q-img">' + thumb + '</div>'
       + '<div class="q-inf"><div class="q-song">' + row.song_title + '</div>'
       + '<div class="q-meta">' + (row.song_channel ? '<span>' + row.song_channel + '</span>' : '') + ig + etaStr + '</div>'
+      + (row.message ? '<div style="font-size:10px;color:var(--muted2);margin-top:4px;font-style:italic;">&#128172; ' + row.message + '</div>' : '')
     + (row.video_id ? '<div class="spotdl-cmd" onclick="copySpotdl(\'' + row.video_id + '\', this)">&#128229; spotdl download &quot;https://www.youtube.com/watch?v=' + row.video_id + '&quot;</div>' : '')
     + '</div>'
       + chip
