@@ -1,4 +1,15 @@
 -- Run this in Supabase SQL Editor (Dashboard → SQL Editor → New Query)
+--
+-- Matches the live database as of 7 Oct 2026 (taken from a full backup before
+-- pausing the Supabase project).
+--
+-- WARNING: the access rules below are wide open. With the public anon key
+-- (which is in index.html), anyone can update or delete requests and change
+-- event_settings. The DJ PIN is only checked in the browser, so it does not
+-- protect the data. Before reusing this, move DJ actions to a server function
+-- that checks the PIN and limit update/delete to the service role.
+
+-- ─── Requests ────────────────────────────────────────────────
 
 create table requests (
   id uuid default gen_random_uuid() primary key,
@@ -16,7 +27,7 @@ create table requests (
 
   -- Queue
   queue_position integer,
-  status text not null default 'pending',  -- 'pending' | 'playing' | 'played' | 'skipped'
+  status text not null default 'pending',  -- 'pending' | 'playing' | 'played' | 'skipped' | 'deleted'
 
   -- Optional
   message text
@@ -42,7 +53,6 @@ for each row execute function assign_queue_position();
 -- Enable realtime (so DJ Booth updates live)
 alter publication supabase_realtime add table requests;
 
--- Row Level Security: anyone can insert, only authenticated (you) can update/delete
 alter table requests enable row level security;
 
 create policy "Anyone can submit a request"
@@ -53,10 +63,37 @@ create policy "Anyone can read requests"
   on requests for select
   using (true);
 
-create policy "Only service role can update"
+-- Open to anyone (see warning at top)
+create policy public_update
   on requests for update
-  using (auth.role() = 'service_role');
+  using (true) with check (true);
 
-create policy "Only service role can delete"
+create policy public_delete
   on requests for delete
-  using (auth.role() = 'service_role');
+  using (true);
+
+-- ─── Event settings (single row, id = 1) ─────────────────────
+
+create table event_settings (
+  id integer not null default 1 primary key,
+  event_name text not null default 'WORLD CUP PARTY',
+  venue_name text not null default '305 SPORTS BAR',
+  event_date text not null default 'JUN 19',
+  is_accepting boolean not null default true,
+  avg_song_minutes integer not null default 3,
+  updated_at timestamp with time zone default now()
+);
+
+-- The app only updates the row with id = 1, so it must exist
+insert into event_settings (id) values (1);
+
+alter table event_settings enable row level security;
+
+create policy event_select
+  on event_settings for select
+  using (true);
+
+-- Open to anyone (see warning at top)
+create policy event_update
+  on event_settings for update
+  using (true) with check (true);
