@@ -454,12 +454,11 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;o
 <div class="toast" id="toast"></div>
 
 <script>
+// The Supabase URL and anon key are public by design: with the policies in
+// schema.sql the anon role can only READ the queue (for the live view).
+// Every write goes through /api, where the PIN and the service key live.
 var SUPABASE_URL  = 'https://myylxqjqijereffxzmst.supabase.co';
 var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15eWx4cWpxaWplcmVmZnh6bXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2MTU4NTIsImV4cCI6MjA5NjE5MTg1Mn0.vWv13nNJ90kTn9MggY_CuoJByG4SSw7saCsJLtUo4-c';
-var YT_API_KEY = localStorage.getItem('yt_api_key') || 'AIzaSyBke2t7VEgs_CxnETVVEw6jhm01c900hnY';
-
-// Change this to your own PIN
-var DJ_PIN = '2606';
 
 var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
@@ -468,7 +467,8 @@ var ytResults     = [];
 var source        = 'yt';
 var searchTimer   = null;
 var realtimeSub   = null;
-var isDJ          = sessionStorage.getItem('dj_auth') === '1';
+var djPin         = sessionStorage.getItem('dj_pin') || '';
+var isDJ          = !!djPin;
 var djPanelOpen   = false;
 var eventSettings = { event_name:'LIVE', venue_name:'', event_date:'', is_accepting:true, avg_song_minutes:3 };
 
@@ -537,8 +537,8 @@ async function saveSettings() {
     is_accepting:       document.getElementById('ctrl-accepting').checked,
     updated_at:         new Date().toISOString()
   };
-  var r = await sb.from('event_settings').update(payload).eq('id', 1).select();
-  if (r.error) { showToast('Save failed: ' + r.error.message, true); return; }
+  var r = await djAction('save_settings', { settings: payload });
+  if (!r.ok) return;
   eventSettings = Object.assign(eventSettings, payload);
   applyEventSettings();
   loadQueue(); // recalc ETAs with new avg_song_minutes
@@ -566,18 +566,20 @@ function onPinKey(e) {
   document.getElementById('pin-err').textContent = '';
 }
 
-function submitPin() {
+async function submitPin() {
   var val = document.getElementById('pin-input').value;
-  if (val === DJ_PIN) {
+  var r = await api('/api/dj', { pin: val, action: 'login' });
+  if (r.ok) {
     isDJ = true;
-    sessionStorage.setItem('dj_auth', '1');
+    djPin = val;
+    sessionStorage.setItem('dj_pin', val);
     document.getElementById('pin-input').value = '';
     document.getElementById('dj-panel-body').classList.remove('show');
     restoreDjMode();
     loadQueue();
     showToast('DJ mode active', false);
   } else {
-    document.getElementById('pin-err').textContent = 'Wrong PIN';
+    document.getElementById('pin-err').textContent = r.status === 401 ? 'Wrong PIN' : 'Could not reach server';
     document.getElementById('pin-input').value = '';
     setTimeout(function(){ document.getElementById('pin-err').textContent = ''; }, 2000);
   }
@@ -597,7 +599,8 @@ function restoreDjMode() {
 
 function djLogout() {
   isDJ = false;
-  sessionStorage.removeItem('dj_auth');
+  djPin = '';
+  sessionStorage.removeItem('dj_pin');
   document.getElementById('dj-active-bar').classList.remove('show');
   document.getElementById('ctrl-panel').classList.remove('show');
   document.getElementById('clear-played-btn').style.display = 'none';
@@ -649,31 +652,23 @@ function onYtSearch(val) {
   drop.innerHTML = '<div class="loading"><span class="spin">&#9675;</span> searching...</div>';
   drop.classList.add('show');
   searchTimer = setTimeout(function() {
-    if (YT_API_KEY) { fetchYouTube(val); }
-    else { drop.innerHTML = '<div class="loading">YouTube search not configured</div>'; }
+    fetchYouTube(val);
   }, 400);
 }
 
 function fetchYouTube(q) {
   var drop = document.getElementById('yt-results');
-  fetch('https://www.googleapis.com/youtube/v3/search?part=snippet&q=' + encodeURIComponent(q) + '&type=video&maxResults=8&key=' + YT_API_KEY)
+  fetch('/api/search?q=' + encodeURIComponent(q))
     .then(function(r){ return r.json(); })
     .then(function(d){
-      if (d.error) { drop.innerHTML = '<div class="loading">Error: ' + d.error.message + '</div>'; return; }
+      if (d.error) { drop.innerHTML = '<div class="loading">' + escapeHtml(d.error) + '</div>'; return; }
       if (!d.items || !d.items.length) { drop.innerHTML = '<div class="loading">No results found</div>'; return; }
-      ytResults = d.items.map(function(i){
-        return {
-          videoId: i.id.videoId,
-          title:   i.snippet.title,
-          channel: i.snippet.channelTitle,
-          thumb:   (i.snippet.thumbnails && i.snippet.thumbnails.default) ? i.snippet.thumbnails.default.url : ''
-        };
-      });
+      ytResults = d.items;
       drop.innerHTML = ytResults.map(function(it, idx){
-        var th = it.thumb ? '<img src="' + it.thumb + '" alt="" onerror="this.parentElement.innerHTML=\'&#9654;\'">' : '&#9654;';
+        var th = it.thumb ? '<img src="' + escapeHtml(it.thumb) + '" alt="" onerror="this.parentElement.innerHTML=\'&#9654;\'">' : '&#9654;';
         return '<div class="r-item" onclick="selectYtIdx(' + idx + ')">'
           + '<div class="r-thumb">' + th + '</div>'
-          + '<div class="r-info"><div class="r-title">' + it.title + '</div><div class="r-ch">' + it.channel + '</div></div>'
+          + '<div class="r-info"><div class="r-title">' + escapeHtml(it.title) + '</div><div class="r-ch">' + escapeHtml(it.channel) + '</div></div>'
           + '<span class="r-badge">YT</span></div>';
       }).join('');
       drop.classList.add('show');
@@ -687,7 +682,7 @@ function selectYtIdx(idx) {
   selectedSong = { videoId: it.videoId, title: it.title, channel: it.channel, thumb: it.thumb, source: 'yt' };
   document.getElementById('yt-results').classList.remove('show');
   document.getElementById('yt-search').value = '';
-  var th = it.thumb ? '<img src="' + it.thumb + '" alt="">' : '&#9654;';
+  var th = it.thumb ? '<img src="' + escapeHtml(it.thumb) + '" alt="">' : '&#9654;';
   showSel(th, it.title, it.channel);
   advanceTo3();
 }
@@ -730,47 +725,33 @@ async function doSubmit() {
   if (!eventSettings.is_accepting) { showToast('Requests are paused right now', true); return; }
   var btn = document.getElementById('submit-btn');
   btn.disabled = true; btn.textContent = 'SENDING...';
-  var payload = {
-    ig_handle:    document.getElementById('ig-in').value.trim() || 'anonymous',
-    song_title:   selectedSong.title,
-    song_channel: selectedSong.channel || null,
-    song_source:  selectedSong.source,
-    video_id:     selectedSong.videoId || null,
-    thumb_url:    selectedSong.thumb   || null,
-    message:      document.getElementById('msg-in').value.trim() || null,
-    status:       'pending'
-  };
-  var result = await sb.from('requests').insert([payload]).select().single();
-  if (result.error) {
-    showToast('Something went wrong. Try again.', true);
+  var result = await api('/api/request', {
+    ig:      document.getElementById('ig-in').value.trim(),
+    title:   selectedSong.title,
+    channel: selectedSong.channel || null,
+    source:  selectedSong.source,
+    videoId: selectedSong.videoId || null,
+    message: document.getElementById('msg-in').value.trim() || null
+  });
+  if (!result.ok) {
+    showToast(result.data.error || 'Something went wrong. Try again.', true);
     btn.disabled = false; btn.textContent = 'SEND REQUEST';
     return;
   }
   var avgMin = eventSettings.avg_song_minutes || 3;
-  var countResult = await sb.from('requests').select('id', { count: 'exact' }).eq('status', 'pending');
-  var livePos = countResult.count || 1;
+  var livePos = result.data.position || 1;
   document.getElementById('q-num').textContent = livePos;
   document.getElementById('eta').textContent   = '~' + (livePos * avgMin) + ' min';
   var scThumb = document.getElementById('sc-thumb');
   scThumb.innerHTML = selectedSong.thumb
-    ? '<img src="' + selectedSong.thumb + '" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML=\'&#9835;\'">'
+    ? '<img src="' + escapeHtml(selectedSong.thumb) + '" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML=\'&#9835;\'">'
     : (selectedSong.source === 'txt' ? '&#9998;' : '&#9835;');
   document.getElementById('sc-title').textContent = selectedSong.title;
   document.getElementById('sc-ch').textContent    = selectedSong.channel || '';
   document.getElementById('req-form').style.display = 'none';
   document.getElementById('success').classList.add('show');
 
-  // Notify DJ via ntfy.sh -- fires even when phone is locked
-  var igHandle = document.getElementById('ig-in').value.trim() || 'anonymous';
-  fetch('https://ntfy.sh/bangher-queue-2606', {
-    method: 'POST',
-    body: (selectedSong ? selectedSong.title : 'Unknown') + ' from @' + igHandle,
-    headers: {
-      'Title': 'New Request',
-      'Priority': 'high',
-      'Tags': 'musical_note'
-    }
-  }).catch(function(){});
+  // The DJ's phone notification (ntfy) is sent by /api/request.
 }
 
 function resetForm() {
@@ -827,12 +808,13 @@ function renderQueue(rows) {
   list.innerHTML = active.concat(played).map(function(row){
     var isPlaying = row.status === 'playing';
     var isPlayed  = row.status === 'played';
+    if (row.video_id && !/^[A-Za-z0-9_-]{11}$/.test(row.video_id)) row.video_id = null;
     var thumb = row.video_id
       ? '<img src="https://img.youtube.com/vi/' + row.video_id + '/default.jpg" alt="" onerror="this.parentElement.innerHTML=\'&#9835;\'">'
       : '&#9835;';
-    var posLabel = isPlaying ? '&#9654;' : isPlayed ? '&#10003;' : row.queue_position;
+    var posLabel = isPlaying ? '&#9654;' : isPlayed ? '&#10003;' : escapeHtml(row.queue_position);
     var chip = isPlaying ? '<span class="chip now">NOW</span>' : isPlayed ? '<span class="chip done">PLAYED</span>' : '';
-    var ig = (row.ig_handle && row.ig_handle !== 'anonymous') ? '<span class="q-ig">@' + row.ig_handle + '</span>' : '';
+    var ig = (row.ig_handle && row.ig_handle !== 'anonymous') ? '<span class="q-ig">@' + escapeHtml(row.ig_handle) + '</span>' : '';
     var etaStr = (!isPlaying && !isPlayed && row.queue_position > 1) ? '<span>~' + ((row.queue_position - 1) * avgMin) + 'min</span>' : '';
 
     var actions = '';
@@ -845,9 +827,9 @@ function renderQueue(rows) {
     return '<div class="q-row' + (isPlaying ? ' is-playing' : '') + (isPlayed ? ' is-played' : '') + '" id="row-' + row.id + '">'
       + '<div class="q-pos">' + posLabel + '</div>'
       + '<div class="q-img">' + thumb + '</div>'
-      + '<div class="q-inf"><div class="q-song">' + row.song_title + '</div>'
-      + '<div class="q-meta">' + (row.song_channel ? '<span>' + row.song_channel + '</span>' : '') + ig + etaStr + '</div>'
-    + (row.message ? '<div style="font-size:10px;color:var(--muted2);margin-top:4px;font-style:italic;">&#128172; ' + row.message + '</div>' : '')
+      + '<div class="q-inf"><div class="q-song">' + escapeHtml(row.song_title) + '</div>'
+      + '<div class="q-meta">' + (row.song_channel ? '<span>' + escapeHtml(row.song_channel) + '</span>' : '') + ig + etaStr + '</div>'
+    + (row.message ? '<div style="font-size:10px;color:var(--muted2);margin-top:4px;font-style:italic;">&#128172; ' + escapeHtml(row.message) + '</div>' : '')
     + (isDJ && row.video_id ? '<div class="spotdl-cmd" onclick="copySpotdl(\'' + row.video_id + '\', this)">&#128229; spotdl download &quot;https://www.youtube.com/watch?v=' + row.video_id + '&quot;</div>' : '')
     + '</div>'
       + chip
@@ -867,29 +849,22 @@ function updateStats(rows) {
 }
 
 // ─── DJ ACTIONS ────────────────────────
+// Each one is checked against the PIN on the server (api/dj.js).
 async function markPlaying(id) {
   if (!isDJ) return;
-  console.log('marking playing:', id);
-  var r1 = await sb.from('requests').update({ status: 'pending' }).eq('status', 'playing').select();
-  if (r1.error) console.error('reset error:', r1.error);
-  var r2 = await sb.from('requests').update({ status: 'playing' }).eq('id', id).select();
-  if (r2.error) { showToast('Error: ' + r2.error.message, true); console.error('play error:', r2.error); return; }
-  loadQueue();
+  if ((await djAction('play', { id: id })).ok) loadQueue();
 }
 
 async function markPlayed(id) {
   if (!isDJ) return;
-  console.log('marking played:', id);
-  var result = await sb.from('requests').update({ status: 'played' }).eq('id', id).select();
-  if (result.error) { showToast('Error: ' + result.error.message, true); console.error('played error:', result.error); return; }
+  if (!(await djAction('played', { id: id })).ok) return;
   showToast('Marked as played', false);
   loadQueue();
 }
 
 async function clearAllPlayed() {
   if (!isDJ) return;
-  var result = await sb.from('requests').update({ status: 'deleted' }).eq('status', 'played').select();
-  if (result.error) { showToast('Error: ' + result.error.message, true); return; }
+  if (!(await djAction('clear_played')).ok) return;
   showToast('Played songs cleared', false);
   loadQueue();
 }
@@ -897,8 +872,7 @@ async function clearAllPlayed() {
 async function clearEntireQueue() {
   if (!isDJ) return;
   if (!confirm('Clear the entire queue? This cannot be undone.')) return;
-  var result = await sb.from('requests').update({ status: 'deleted' }).neq('status', 'deleted').select();
-  if (result.error) { showToast('Error: ' + result.error.message, true); return; }
+  if (!(await djAction('clear_all')).ok) return;
   showToast('Queue cleared', false);
   loadQueue();
 }
@@ -978,7 +952,29 @@ function cardActive(id) { var el = document.getElementById(id); el.classList.rem
 function cardUnlock(id) { document.getElementById(id).classList.remove('locked'); }
 
 // ─── UTILS ─────────────────────────────
-function esc(s){ return String(s).replace(/'/g,"&#39;").replace(/"/g,'&quot;'); }
+// Everything fans type is untrusted: escape it before it touches innerHTML.
+function escapeHtml(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+async function api(path, body) {
+  try {
+    var r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    var data = await r.json().catch(function(){ return {}; });
+    return { ok: r.ok, status: r.status, data: data };
+  } catch (e) {
+    return { ok: false, status: 0, data: { error: 'Network error' } };
+  }
+}
+
+async function djAction(action, extra) {
+  var r = await api('/api/dj', Object.assign({ pin: djPin, action: action }, extra || {}));
+  if (r.status === 401) { showToast('PIN no longer valid. Log in again.', true); djLogout(); }
+  else if (!r.ok) showToast('Error: ' + (r.data.error || 'request failed'), true);
+  return r;
+}
 function showToast(msg, isErr) {
   var t = document.getElementById('toast');
   t.textContent = msg;

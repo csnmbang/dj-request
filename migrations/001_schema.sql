@@ -1,13 +1,11 @@
 -- Run this in Supabase SQL Editor (Dashboard → SQL Editor → New Query)
+-- for a fresh project. Upgrading the existing database? Run
+-- migrations/002_lock_down.sql instead.
 --
--- Matches the live database as of 7 Oct 2026 (taken from a full backup before
--- pausing the Supabase project).
---
--- WARNING: the access rules below are wide open. With the public anon key
--- (which is in index.html), anyone can update or delete requests and change
--- event_settings. The DJ PIN is only checked in the browser, so it does not
--- protect the data. Before reusing this, move DJ actions to a server function
--- that checks the PIN and limit update/delete to the service role.
+-- Access model: the browser holds only the anon key, which can READ the
+-- queue and event settings (for the live view) and nothing else. Every write
+-- goes through the Vercel functions in /api, which check the DJ PIN and use
+-- the service role key. The service role bypasses row level security.
 
 -- ─── Requests ────────────────────────────────────────────────
 
@@ -30,7 +28,16 @@ create table requests (
   status text not null default 'pending',  -- 'pending' | 'playing' | 'played' | 'skipped' | 'deleted'
 
   -- Optional
-  message text
+  message text,
+
+  -- Same limits the API enforces, so the database refuses junk too
+  constraint ig_len      check (char_length(ig_handle)  <= 40),
+  constraint title_len   check (char_length(song_title) between 1 and 200),
+  constraint channel_len check (char_length(song_channel) <= 120),
+  constraint message_len check (char_length(message)    <= 280),
+  constraint source_ok   check (song_source in ('yt', 'txt')),
+  constraint video_ok    check (video_id is null or video_id ~ '^[A-Za-z0-9_-]{11}$'),
+  constraint status_ok   check (status in ('pending', 'playing', 'played', 'skipped', 'deleted'))
 );
 
 -- Auto-assign queue position on insert
@@ -55,21 +62,10 @@ alter publication supabase_realtime add table requests;
 
 alter table requests enable row level security;
 
-create policy "Anyone can submit a request"
-  on requests for insert
-  with check (true);
-
+-- Read-only for the public. No insert/update/delete policies on purpose:
+-- writes go through /api with the service role.
 create policy "Anyone can read requests"
   on requests for select
-  using (true);
-
--- Open to anyone (see warning at top)
-create policy public_update
-  on requests for update
-  using (true) with check (true);
-
-create policy public_delete
-  on requests for delete
   using (true);
 
 -- ─── Event settings (single row, id = 1) ─────────────────────
@@ -93,7 +89,4 @@ create policy event_select
   on event_settings for select
   using (true);
 
--- Open to anyone (see warning at top)
-create policy event_update
-  on event_settings for update
-  using (true) with check (true);
+-- No update policy: settings are changed only through /api/dj.
