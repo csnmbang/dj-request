@@ -1,4 +1,4 @@
-# BANGHER REQUEST 🎧
+# BANGHER REQUEST
 
 **Live: [dj-request-seven.vercel.app](https://dj-request-seven.vercel.app)**
 
